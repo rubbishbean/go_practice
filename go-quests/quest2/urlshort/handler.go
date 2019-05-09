@@ -2,6 +2,7 @@ package urlshort
 
 import (
 	"net/http"
+	"gopkg.in/yaml.v2"
 )
 
 // MapHandler will return an http.HandlerFunc (which also
@@ -13,7 +14,12 @@ import (
 func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.HandlerFunc {
 	//	TODO: Implement this...
 	return func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, pathsToUrls[r.URL.Path], http.StatusTemporaryRedirect)
+		if val, ok := pathsToUrls[r.URL.Path]; ok {
+			http.Redirect(w, r, val, http.StatusTemporaryRedirect)
+		}else{
+			fallback.ServeHTTP(w, r)
+		}
+		
 	}
 }
 
@@ -35,5 +41,26 @@ func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.Handl
 // a mapping of paths to urls.
 func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
 	// TODO: Implement this...
-	return nil, nil
+	parsedYAML, err := ParseYAML(yml)
+	if err != nil {
+		return nil, err
+	}
+	pathMap := BuildMap(parsedYAML)
+	return MapHandler(pathMap, fallback), err
+}
+
+// ParseYAML will parse the string to a slice of map, 
+// each map has two entries -- path:val, url:val
+func ParseYAML(yml []byte) (result []map[string]string, err error) {
+	err = yaml.Unmarshal(yml, &result)
+    return result,err
+}
+
+// BuildMap builds a map with key=path and val=url from the result of ParseYAML
+func BuildMap(raw []map[string]string) (map[string]string) {
+	result := make(map[string]string)
+	for _, item := range(raw) { 
+		result[item["path"]] = item["url"]
+	}
+	return result
 }
